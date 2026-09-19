@@ -269,12 +269,32 @@
             const m = txt.match(/([A-Z]{1,2}\d{3})/);
             if (m) senhaAtual = m[1];
         });
+
         if (senhaAtual && senhaAtual !== ultimaSenhaAtendimento) {
             ultimaSenhaAtendimento = senhaAtual;
-            const foiRecomendada = senhaAtual === ultimaRecomendada;
+
+            // Recalcula a recomendada no momento exato da chamada
+            // usando baseDados atual + timestamps — não usa ultimaRecomendada cached
+            let recomendadaAgora = null;
+            if (baseDados.length > 0) {
+                // Recalcula pct para cada senha excluindo a que foi chamada
+                const filaRestante = baseDados.filter(s => s.senha !== senhaAtual);
+                // A recomendada é a que tinha maior % no momento — pode ser a própria chamada
+                const todasComChamada = [...baseDados];
+                todasComChamada.sort((a,b) => {
+                    const pctA = ((Date.now()-a.timestampBase)/1000)/(a.limiteMin*60)*100;
+                    const pctB = ((Date.now()-b.timestampBase)/1000)/(b.limiteMin*60)*100;
+                    return pctB - pctA;
+                });
+                recomendadaAgora = todasComChamada.length > 0 ? todasComChamada[0].senha : ultimaRecomendada;
+            } else {
+                recomendadaAgora = ultimaRecomendada;
+            }
+
+            const foiRecomendada = senhaAtual === recomendadaAgora;
             historico.push({
                 senha: senhaAtual,
-                recomendada: ultimaRecomendada,
+                recomendada: recomendadaAgora,
                 foiRecomendada,
                 hora: new Date().toLocaleString('pt-BR')
             });
